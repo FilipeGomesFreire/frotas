@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Chamados - Back4App</title>
+</head>
+<body>
+  <script>
+    const API_URL = "https://parseapi.back4app.com/classes/chamados";
+    const HEADERS = {
+      "X-Parse-Application-Id": "4RkqUjQ5dyL7k0RbQyGz2ArZMjoIPz9Qb3VuGUKU",
+      "X-Parse-REST-API-Key": "WkO0917Kzrx3oqWV4QDVDgbeTAuKI1crrbxAwvaE",
+      "Content-Type": "application/json"
+    };
+
+    // Função para obter o próximo numero_chamado
+    async function getProximoNumeroChamado() {
+      const res = await fetch(`${API_URL}?order=-numero_chamado&limit=1`, {
+        method: "GET",
+        headers: HEADERS
+      });
+      const data = await res.json();
+      const ultimoNumero = data.results.length > 0 ? data.results[0].numero_chamado : 0;
+      return ultimoNumero + 1;
+    }
+
+    // CREATE (gera numero_chamado automaticamente)
+    async function createChamado({ frota, UTD, horimetro, status, chamado_aberto }) {
+      const numero_chamado = await getProximoNumeroChamado();
+
+      const body = {
+        frota,
+        UTD,
+        horimetro,
+        status,
+        chamado_aberto,
+        numero_chamado
+      };
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: HEADERS,
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      console.log("✅ Chamado criado:", data);
+    }
+
+    // READ TODOS
+    async function readChamados() {
+      const res = await fetch(API_URL, {
+        method: "GET",
+        headers: HEADERS
+      });
+
+      const data = await res.json();
+      console.log("📋 Chamados encontrados:", data.results);
+    }
+
+    // UPDATE usando numero_chamado
+    async function updateChamadoPorNumero(numero_chamado, updateData) {
+      const queryURL = `${API_URL}?where=${encodeURIComponent(JSON.stringify({ numero_chamado }))}`;
+      const res = await fetch(queryURL, {
+        method: "GET",
+        headers: HEADERS
+      });
+
+      const data = await res.json();
+      if (data.results.length === 0) {
+        console.log("❌ Nenhum chamado encontrado com esse número.");
+        return;
+      }
+
+      const objectId = data.results[0].objectId;
+
+      if (updateData.chamado_aberto === false) {
+        updateData.finalizadeAt = {
+          "__type": "Date",
+          "iso": new Date().toISOString()
+        };
+      }
+
+      const updateRes = await fetch(`${API_URL}/${objectId}`, {
+        method: "PUT",
+        headers: HEADERS,
+        body: JSON.stringify(updateData)
+      });
+
+      const updateResult = await updateRes.json();
+      console.log("✅ Chamado atualizado:", updateResult);
+    }
+
+    // DELETE usando numero_chamado
+    async function deleteChamadoPorNumero(numero_chamado) {
+      const queryURL = `${API_URL}?where=${encodeURIComponent(JSON.stringify({ numero_chamado }))}`;
+      const res = await fetch(queryURL, {
+        method: "GET",
+        headers: HEADERS
+      });
+
+      const data = await res.json();
+      if (data.results.length === 0) {
+        console.log("❌ Nenhum chamado encontrado para deletar.");
+        return;
+      }
+
+      const objectId = data.results[0].objectId;
+
+      const deleteRes = await fetch(`${API_URL}/${objectId}`, {
+        method: "DELETE",
+        headers: HEADERS
+      });
+
+      if (deleteRes.ok) {
+        console.log("🗑️ Chamado deletado com sucesso.");
+      } else {
+        console.error("❌ Erro ao deletar.");
+      }
+    }
+
+    // Exemplo de uso:
+    // createChamado({ frota: "C-456", UTD: "UTD-B", horimetro: "1550", status: "Em manutenção", chamado_aberto: true });
+    // readChamados();
+    // updateChamadoPorNumero(2, { status: "Finalizado", chamado_aberto: false });
+    // deleteChamadoPorNumero(2);
+
+  </script>
+</body>
+</html>
